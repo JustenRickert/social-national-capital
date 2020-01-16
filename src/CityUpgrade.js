@@ -7,12 +7,23 @@ export const UpgradeMenu = ({ city, upgrade, onPurchaseUpgrade }) => {
   return (
     <div>
       <ul>
-        {Object.keys(social).map(name => (
+        {Object.keys(social).map(establishment => (
           <li
-            children={[name, computeUpgradeCost(SOCIAL, name, upgrade)].join(
-              " "
-            )}
-          />
+            onClick={() =>
+              onPurchaseUpgrade({ stateType: SOCIAL, establishment })
+            }
+          >
+            <button
+              disabled={
+                city[SOCIAL].wealth <
+                computeUpgradeCost(SOCIAL, establishment, upgrade)
+              }
+              children={[
+                establishment,
+                computeUpgradeCost(SOCIAL, establishment, upgrade)
+              ].join(" ")}
+            />
+          </li>
         ))}
       </ul>
     </div>

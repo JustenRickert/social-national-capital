@@ -107,7 +107,10 @@ export const createCitySlice = (initialState = initialCityState) =>
           Object.assign({}, state, {
             wealth: state.wealth + state.workers
           })
-        )
+        ),
+
+      tax: (state, { payload: { stateType, amount } }) =>
+        update(state, [stateType, "wealth"], wealth => wealth - amount)
 
       // commitWorkerDeath: state => {
       //   const percentDebt = state.workerWages / totalStateMoney(state);

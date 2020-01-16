@@ -5,7 +5,11 @@ import {
   createCitySlice,
   taxWorkersAction
 } from "./city-module.js";
-import { initialUpgradeState, createUpgradeSlice } from "./city-upgrades.js";
+import {
+  initialUpgradeState,
+  createUpgradeSlice,
+  computeUpgradeCost
+} from "./city-upgrades.js";
 import City, { useCityInterval } from "./City.js";
 import { UpgradeMenu } from "./CityUpgrade.js";
 import { SOCIAL } from "./constants.js";
@@ -30,14 +34,24 @@ const App = () => {
   const { actions: cityActions } = citySlice.current;
   useCityInterval({
     onSocialGrowth: () => {
-      console.log("growing SOCIAL?");
       dispatch(cityActions.updateWealth(SOCIAL));
     }
   });
 
+  const handlePurchaseUpgrade = ({ stateType, establishment }) => {
+    const { actions: upgradeActions } = upgradeSlice.current;
+    const amount = computeUpgradeCost(stateType, establishment, state.upgrade);
+    dispatch(upgradeActions.upgradeUpgrade({ stateType, establishment }));
+    dispatch(cityActions.tax({ stateType, amount }));
+  };
+
   return (
     <div className="App">
-      <UpgradeMenu upgrade={state.upgrade} />
+      <UpgradeMenu
+        city={state.city}
+        upgrade={state.upgrade}
+        onPurchaseUpgrade={handlePurchaseUpgrade}
+      />
       <City
         city={state.city}
         onTaxWorkers={() => {

@@ -1,9 +1,19 @@
 import { createSlice, createAction } from "@reduxjs/toolkit";
 import { SOCIAL, NATIONAL, CAPITAL } from "./constants";
+import { update } from "./utils";
 
 const COMMUNITY_CENTER = "community center";
 
 const LIBRARY = "library";
+
+export const computeUpgradeCost = (
+  name,
+  establishment,
+  state = initialUpgradeState
+) => {
+  const upgrade = state[name][establishment];
+  return Math.pow(upgrade.initialCost, upgrade.level + 1);
+};
 
 export const initialUpgradeState = {
   [SOCIAL]: {
@@ -14,6 +24,7 @@ export const initialUpgradeState = {
     },
     [LIBRARY]: {
       initialCost: 100,
+      level: 0,
       addition: {
         wealthPerCapita: 200
       }
@@ -37,7 +48,9 @@ export const initialUpgradeState = {
     }
   },
   [CAPITAL]: {
-    technology: {}
+    technology: {
+      level: 0
+    }
   }
 };
 
@@ -45,21 +58,8 @@ export const createUpgradeSlice = (initialState = initialUpgradeState) =>
   createSlice({
     name: "upgrade",
     initialState,
-    reducers: {}
+    reducers: {
+      upgradeUpgrade: (state, { payload: { stateType, establishment } }) =>
+        update(state, [stateType, establishment, "level"], level => level + 1)
+    }
   });
-
-export const computeUpgradeCost = (
-  name,
-  establishment,
-  state = initialUpgradeState
-) => {
-  const upgrade = state[name][establishment];
-  return Math.pow(upgrade.initialCost, upgrade.level + 1);
-};
-
-export const cityUpgradeUpgrade = createAction("city/upgrade", payload => {
-  console.log(payload);
-  return {
-    payload
-  };
-});
