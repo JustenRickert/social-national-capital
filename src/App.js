@@ -1,26 +1,60 @@
-import React from 'react';
-import logo from './logo.svg';
-import './App.css';
+import React, { useReducer, useRef, useCallback } from "react";
+import { combineReducers } from "@reduxjs/toolkit";
+import {
+  initialCityState,
+  createCitySlice,
+  taxWorkersAction
+} from "./city-module.js";
+import { initialUpgradeState, createUpgradeSlice } from "./city-upgrades.js";
+import City, { useCityInterval } from "./City.js";
+import { UpgradeMenu } from "./CityUpgrade.js";
+import { SOCIAL } from "./constants.js";
+import "./App.css";
+import logo from "./logo.svg";
 
-function App() {
+const App = () => {
+  const citySlice = useRef(createCitySlice());
+  const upgradeSlice = useRef(createUpgradeSlice());
+  const [state, dispatch] = useReducer(
+    combineReducers({
+      city: citySlice.current.reducer,
+      upgrade: upgradeSlice.current.reducer
+    }),
+    {
+      city: initialCityState,
+      upgrade: initialUpgradeState
+    }
+  );
+
+  // this should maybe(?) not be tied up in the React render cycle... :shrug:
+  const { actions: cityActions } = citySlice.current;
+  useCityInterval({
+    onSocialGrowth: () => {
+      console.log("growing SOCIAL?");
+      dispatch(cityActions.updateWealth(SOCIAL));
+    }
+  });
+
   return (
     <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+      <UpgradeMenu upgrade={state.upgrade} />
+      <City
+        city={state.city}
+        onTaxWorkers={() => {
+          const action = taxWorkersAction(state.city);
+          // TODO: make a dialog with this
+          if (action.error) console.log(action.meta.message);
+          dispatch(action);
+        }}
+        onLevelEstablishment={establishment => {
+          dispatch(citySlice.current.actions.levelEstablishment(establishment));
+        }}
+        onUpgradeEstablishment={action => {
+          dispatch(citySlice.current.actions.upgradeEstablishment(action));
+        }}
+      />
     </div>
   );
-}
+};
 
 export default App;
