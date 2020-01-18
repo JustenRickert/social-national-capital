@@ -1,8 +1,12 @@
 import React, { useEffect, useRef, useState } from "react";
 import { libraryEstablishment, totalStateMoney } from "./city-module";
-import { randomDeviation } from "./utils";
-import { upgradeLevelCost } from "./city-utils";
-import { SOCIAL } from "./constants";
+import { randomDeviation, toDisplayString } from "./utils";
+import {
+  upgradeLevelCost,
+  toPercentage,
+  computeUpdateWealthDelta
+} from "./city-utils";
+import { SOCIAL, NATIONAL } from "./constants";
 
 const CommunityCenter = ({
   city,
@@ -35,16 +39,18 @@ const randomDeviationInterval = (ref, fn, ms) => {
   );
 };
 
-export const useCityInterval = ({ onSocialGrowth }) => {
-  const socialGrowthTimeout = useRef();
+export const useCityInterval = ({ onSocialChange }) => {
+  const socialChangeTimeout = useRef();
+  const socialTaxTimeout = useRef();
 
   useEffect(() => {
-    randomDeviationInterval(socialGrowthTimeout, onSocialGrowth, 1e3);
-  }, [onSocialGrowth]);
+    randomDeviationInterval(socialChangeTimeout, onSocialChange, 1e3);
+  }, [onSocialChange]);
 };
 
 const City = ({
   city,
+  upgrade,
   onTaxWorkers,
   onCreateLibrary,
   onUpgradeEstablishment,
@@ -61,21 +67,49 @@ const City = ({
     onLevelEstablishment(establishment);
   };
 
-  const establishmentsLength = Object.keys(city[SOCIAL].establishments).length;
+  const { [SOCIAL]: social, [NATIONAL]: national } = city;
 
   return (
-    <div className="city">
-      <h2 children={city.name} />
+    <section>
+      <h2 className="title" children={city.name} />
+
+      <h3 children="social" />
+      <ul>
+        <li children={["workers", social.workers].join(" ")} />
+        <li
+          children={["birth chance", toPercentage(social.birthchance)].join(
+            " "
+          )}
+        />
+        <li
+          children={["death chance", toPercentage(social.deathchance)].join(
+            " "
+          )}
+        />
+        <li
+          children={[
+            "wealth",
+            `(+~${toDisplayString(
+              computeUpdateWealthDelta({ city, upgrade })
+            )}/s)`,
+            toDisplayString(social.wealth)
+          ].join(" ")}
+        />
+      </ul>
 
       <h3 children="national" />
       <ul>
+        <li children={["officials", city[NATIONAL].officials].join(" ")} />
+        <li children={["wealth", city[NATIONAL].wealth].join(" ")} />
         <li
-          children={[
-            "capital",
-            city[SOCIAL].wealth,
-            "+",
-            `${city[SOCIAL].growth}/s`
-          ].join(" ")}
+          children={["tax chance", toPercentage(city[NATIONAL].taxchance)].join(
+            " "
+          )}
+        />
+        <li
+          children={["tax rate", toPercentage(city[NATIONAL].taxrate)].join(
+            " "
+          )}
         />
       </ul>
       <button
@@ -84,12 +118,6 @@ const City = ({
         children={"Tax workers"}
       />
 
-      <h3 children="social" />
-      <ul>
-        <li children={["workers", city[SOCIAL].workers].join(" ")} />
-        <li children={["wealth", city[SOCIAL].wealth].join(" ")} />
-      </ul>
-
       <h3 children="capital" />
       <ul>
         <li children={["aristocrats", city.aristocrats].join(" ")} />
@@ -97,7 +125,7 @@ const City = ({
           children={["aristocracy wealth", city.aristocracyWealth].join(" ")}
         />
       </ul>
-    </div>
+    </section>
   );
 };
 

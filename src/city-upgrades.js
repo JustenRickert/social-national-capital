@@ -3,45 +3,39 @@ import { SOCIAL, NATIONAL, CAPITAL } from "./constants";
 import { update } from "./utils";
 
 const COMMUNITY_CENTER = "community center";
-
 const LIBRARY = "library";
-
-export const computeUpgradeCost = (
-  name,
-  establishment,
-  state = initialUpgradeState
-) => {
-  const upgrade = state[name][establishment];
-  return Math.pow(upgrade.initialCost, upgrade.level + 1);
-};
+const ADMINISTRATION = "administration";
+const DEFENSE = "defense";
 
 export const initialUpgradeState = {
   [SOCIAL]: {
     [COMMUNITY_CENTER]: {
-      initialCost: 10,
+      initialCost: 50_000,
       level: 0,
-      scalars: {}
+      update: {
+        wealth: 0.001
+      }
     },
     [LIBRARY]: {
-      initialCost: 100,
+      initialCost: 10,
       level: 0,
-      addition: {
-        wealthPerCapita: 200
+      update: {
+        wealth: 0.01
       }
     }
   },
   [NATIONAL]: {
-    administration: {
-      initialCost: 1000,
+    [ADMINISTRATION]: {
+      initialCost: { [SOCIAL]: 1000 },
       level: 0,
-      addition: {
-        wealthPerCapita: 1000
+      additional: {
+        officialMax: 1
       },
-      scalars: {
-        wealthPerCapita: 1.1
+      update: {
+        taxrate: 0.01
       }
     },
-    defense: {
+    [DEFENSE]: {
       initialCost: 1500,
       level: 0,
       addition: {}
@@ -59,7 +53,11 @@ export const createUpgradeSlice = (initialState = initialUpgradeState) =>
     name: "upgrade",
     initialState,
     reducers: {
-      upgradeUpgrade: (state, { payload: { stateType, establishment } }) =>
-        update(state, [stateType, establishment, "level"], level => level + 1)
+      upgradeUpgrade: (state, { payload: { stateType, establishmentKey } }) =>
+        update(
+          state,
+          [stateType, establishmentKey, "level"],
+          level => level + 1
+        )
     }
   });

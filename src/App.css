@@ -1,5 +1,7 @@
 .App {
+    display: flex;
     margin: 4em;
+    justify-content: space-between;
 }
 
 .App-logo {
@@ -20,4 +22,11 @@
 
 .App-link {
   color: #61dafb;
+}
+
+section {
+    width: 100%;
+}
+
+.title {
 }
