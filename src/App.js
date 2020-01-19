@@ -6,7 +6,7 @@ import { computeUpgradeCost, computeOfficialMax } from "./city-utils";
 import City, { useCityInterval } from "./City.js";
 import Establishments from "./Establishments.js";
 import { UpgradeMenu } from "./CityUpgrade.js";
-import { SOCIAL, NATIONAL } from "./constants.js";
+import { SOCIAL, NATIONAL, PROPAGANDA } from "./constants.js";
 import "./App.css";
 
 const App = ({ defaultState }) => {
@@ -39,11 +39,18 @@ const App = ({ defaultState }) => {
       if (national.officials < officialMax)
         dispatch(cityActions.officiateWorker());
 
-      if (national.officials && Math.random() < national.taxchance)
-        dispatch(cityActions.socialTax({ upgrade: state.upgrade }));
+      if (national.officials) {
+        if (Math.random() < national.taxchance)
+          dispatch(cityActions.socialTax({ upgrade: state.upgrade }));
+      }
     },
     onSocialChange: () => {
       handleWealthUpdate();
+      if (
+        Math.random() <= social.fightPropagandachance &&
+        social.nationalAlignment > 0
+      )
+        dispatch(cityActions.socialFightPropaganda());
 
       if (social.workers > 100 / 0.95 && Math.random() < social.deathchance)
         dispatch(cityActions.workerDeath());
@@ -76,7 +83,19 @@ const App = ({ defaultState }) => {
           dispatch(citySlice.current.actions.upgradeEstablishment(action));
         }}
       />
-      <Establishments {...state} />
+      <Establishments
+        {...state}
+        onEstablishmentEvent={e => {
+          switch (e.type) {
+            case PROPAGANDA:
+              dispatch(citySlice.current.actions.nationalCreatePropaganda());
+              break;
+            default:
+              throw new Error();
+          }
+          console.log("establishment event", e);
+        }}
+      />
     </div>
   );
 };

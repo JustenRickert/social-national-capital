@@ -1,10 +1,9 @@
 import { createSlice } from "@reduxjs/toolkit";
-import { SOCIAL, NATIONAL, CAPITAL } from "./constants";
+import { ADMINISTRATION, SOCIAL, NATIONAL, CAPITAL } from "./constants";
 import { update } from "./utils";
 
 const COMMUNITY_CENTER = "community center";
 const LIBRARY = "library";
-const ADMINISTRATION = "administration";
 const DEFENSE = "defense";
 
 export const initialUpgradeState = {

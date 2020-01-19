@@ -1,7 +1,12 @@
 export const sample = xs => xs[Math.floor(Math.random() * xs.length)];
 
 export const randomDeviation = (n, maxOffset) =>
-  n + 2 * (Math.random() - 0.5) * maxOffset * n;
+  n + randomUnitSegment() * maxOffset * n;
+
+/**
+ * @returns - number in range [-1, 1)
+ */
+export const randomUnitSegment = () => 2 * (Math.random() - 1 / 2);
 
 export const tap = x => {
   console.log(x);

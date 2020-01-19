@@ -55,15 +55,12 @@ export const EstablishmentUpgradeList = props => {
 };
 
 export const UpgradeMenu = ({ city, upgrade, onPurchaseUpgrade }) => {
-  const { [SOCIAL]: socialUpgrades } = upgrade;
+  const { [SOCIAL]: socialUpgrades, [NATIONAL]: nationalUpgrades } = upgrade;
   return (
     <section>
       <h2 className="title" children="social upgrades" />
-
       <When
-        when={Object.values(socialUpgrades).some(
-          establishment => !establishment.level
-        )}
+        when={Object.values(socialUpgrades).some(({ level }) => !level)}
         or="None :("
       >
         <EstablishmentUpgradeList
@@ -75,8 +72,10 @@ export const UpgradeMenu = ({ city, upgrade, onPurchaseUpgrade }) => {
       </When>
 
       <h2 className="title" children="national upgrades" />
-
-      <When when={true} or="None :(">
+      <When
+        when={Object.values(nationalUpgrades).some(({ level }) => !level)}
+        or="None :("
+      >
         <EstablishmentUpgradeList
           stateType={NATIONAL}
           city={city}

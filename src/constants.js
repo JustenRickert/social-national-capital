@@ -6,3 +6,6 @@ export const NATIONAL_DESCRIPTION = "The power in the hands of the government";
 
 export const CAPITAL = "capital";
 export const CAPITAL_DESCRIPTION = "The power in the hands of the rich";
+
+export const ADMINISTRATION = "administration";
+export const PROPAGANDA = "administration.propaganda";

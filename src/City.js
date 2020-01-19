@@ -65,6 +65,11 @@ const CitySocial = ({ city, upgrade }) => {
             toDisplayString(social.wealth)
           ].join(" ")}
         />
+        <li
+          children={["alignment", toPercentage(social.nationalAlignment)].join(
+            " "
+          )}
+        />
       </ul>
     </section>
   );
