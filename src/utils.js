@@ -8,7 +8,7 @@ export const tap = x => {
   return x;
 };
 
-export const addition = ns => ns.reduce((sum, n) => sum + n, 0);
+export const addition = (...ns) => ns.reduce((sum, n) => sum + n, 0);
 
 export const multiply = xs => xs.reduce((product, x) => product * (x + 1), 1);
 
@@ -28,6 +28,8 @@ export const randomCityName = () => {
 const mapFn = (o, fn) => (Array.isArray(o) ? o.map(fn) : fn(o));
 const first = xs => xs[0];
 const rest = xs => xs.slice(1);
+
+export const toObj = proxy => JSON.parse(JSON.stringify(proxy));
 
 export const update = (o, keys, fn) => {
   if (!fn) return updates(o, keys);

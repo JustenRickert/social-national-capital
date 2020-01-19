@@ -1,20 +1,16 @@
-import { multiply, randomDeviation, addition } from "./utils";
+import { multiply, randomDeviation, range } from "./utils";
 import { SOCIAL, NATIONAL } from "./constants";
 
 export const upgradeLevelCost = upgrade =>
   upgrade.initialCost * Math.pow(10, upgrade.level);
 
-export const totalStateMoney = state =>
-  state.capital + state.workerWealth + state.workerDebt;
+export const computeSocialWealthMax = state =>
+  state[SOCIAL].workers * state[SOCIAL].wealthPerWorker;
 
-export const growthUpperLimit = state => state.workers * state.wealthPerCapita;
-
-export const remainingCapitalGrowthPercentage = state => {
-  const upperLimit = growthUpperLimit(state);
-  if (upperLimit <= 0) return;
+export const computeRemainingWealthPercentage = state => {
+  const socialWealthMax = computeSocialWealthMax(state);
   const remainingPercentageCapital =
-    (upperLimit - totalStateMoney(state)) / upperLimit;
-
+    (socialWealthMax - state[SOCIAL].wealth) / socialWealthMax;
   return remainingPercentageCapital;
 };
 
@@ -38,13 +34,46 @@ export const computeUpgradeCost = (stateType, establishment, state) => {
   return expUpgradeCost(upgrade);
 };
 
-export const computeUpdateWealthDelta = ({ city, upgrade }) => {
+export const updateTypeScalar = (establishment, name) => {
+  const { level, update: { [name]: scalar = 0 } = {} } = establishment;
+  return level * scalar;
+};
+
+const computeUpgradeWealthScalar = ({ city, upgrade }) => {
   const updates = Object.values(upgrade[SOCIAL]).filter(
     establishment =>
       establishment.update && establishment.level && establishment.update.wealth
   );
-  const scalar = multiply(updates.map(({ update: { wealth } }) => wealth));
-  return scalar * city[SOCIAL].workers;
+  const scalar = multiply(
+    updates.map(establishment => updateTypeScalar(establishment, "wealth"))
+  );
+
+  return scalar;
+};
+
+export const computeUpdateWealthDelta = ({ city, upgrade }) => {
+  const scalar = computeUpgradeWealthScalar({ city, upgrade });
+  const remaining = computeRemainingWealthPercentage(city);
+  return remaining * scalar * city[SOCIAL].workers;
+};
+
+export const computeOfficialMax = ({ city, upgrade }) => {
+  const {
+    [SOCIAL]: { workers },
+    [NATIONAL]: { officialMax }
+  } = city;
+  const percentage = Object.values(upgrade[NATIONAL])
+    .filter(({ level, additionalPercentage }) => level && additionalPercentage)
+    .reduce(
+      (percentage, { level, additionalPercentage }) =>
+        range(level).reduce(
+          percentage =>
+            percentage + (1 - percentage) * additionalPercentage.officialMax,
+          percentage
+        ),
+      officialMax
+    );
+  return Math.ceil(workers * percentage);
 };
 
 export const computeSocialTaxAmount = ({ city }) => {

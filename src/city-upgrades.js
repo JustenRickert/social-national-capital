@@ -1,4 +1,4 @@
-import { createSlice, createAction } from "@reduxjs/toolkit";
+import { createSlice } from "@reduxjs/toolkit";
 import { SOCIAL, NATIONAL, CAPITAL } from "./constants";
 import { update } from "./utils";
 
@@ -28,8 +28,8 @@ export const initialUpgradeState = {
     [ADMINISTRATION]: {
       initialCost: { [SOCIAL]: 1000 },
       level: 0,
-      additional: {
-        officialMax: 1
+      additionalPercentage: {
+        officialMax: 0.001
       },
       update: {
         taxrate: 0.01
@@ -53,7 +53,10 @@ export const createUpgradeSlice = (initialState = initialUpgradeState) =>
     name: "upgrade",
     initialState,
     reducers: {
-      upgradeUpgrade: (state, { payload: { stateType, establishmentKey } }) =>
+      upgradeUpgrade: (
+        state,
+        { payload, payload: { stateType, establishmentKey } }
+      ) =>
         update(
           state,
           [stateType, establishmentKey, "level"],

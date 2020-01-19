@@ -12,7 +12,6 @@ const UpgradeLi = ({
   onPurchaseUpgrade
 }) => {
   const upgradeCost = computeUpgradeCost(stateType, establishmentKey, upgrade);
-  console.log({ upgradeCost });
   const disabled =
     typeof upgradeCost === "object"
       ? Object.entries(upgradeCost).every(
@@ -45,7 +44,11 @@ export const EstablishmentUpgradeList = props => {
   return (
     <ul>
       {establishments.map(establishmentKey => (
-        <UpgradeLi {...props} establishmentKey={establishmentKey} />
+        <UpgradeLi
+          key={establishmentKey}
+          {...props}
+          establishmentKey={establishmentKey}
+        />
       ))}
     </ul>
   );
@@ -64,9 +67,9 @@ export const UpgradeMenu = ({ city, upgrade, onPurchaseUpgrade }) => {
         or="None :("
       >
         <EstablishmentUpgradeList
+          stateType={SOCIAL}
           city={city}
           upgrade={upgrade}
-          stateType={SOCIAL}
           onPurchaseUpgrade={onPurchaseUpgrade}
         />
       </When>
@@ -75,9 +78,9 @@ export const UpgradeMenu = ({ city, upgrade, onPurchaseUpgrade }) => {
 
       <When when={true} or="None :(">
         <EstablishmentUpgradeList
+          stateType={NATIONAL}
           city={city}
           upgrade={upgrade}
-          stateType={NATIONAL}
           onPurchaseUpgrade={onPurchaseUpgrade}
         />
       </When>
