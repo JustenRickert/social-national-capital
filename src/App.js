@@ -8,15 +8,16 @@ import {
   useInterval,
   partition,
   get,
-  sampleBetween
+  sampleBetween,
+  useTimeout
 } from "./state-util.js";
+import { assert } from "./util";
 
 import "./app.css";
 
 const initialCityState = {
   social: {
     population: 1,
-    classMobility: 0.01,
 
     deathrate: 10e3,
     birthrate: 8e3,
@@ -25,11 +26,10 @@ const initialCityState = {
   },
   national: {
     population: 0,
-    classMobility: 0
+    treasury: 0
   },
   capital: {
-    population: 0,
-    classMobility: 0
+    population: 0
   }
 };
 
@@ -53,26 +53,71 @@ const city = createSlice({
         state,
         ["social", "wealth"],
         wealth => wealth + multiplier * state.social.population
-      )
+      ),
+    changeWealth: (state, { payload: { stateType, amount } }) => {
+      assert(
+        get(state, [stateType, "wealth"]) + amount > 0,
+        "`wealth` cannot be made negative"
+      );
+      return update(state, [stateType, "wealth"], wealth => wealth + amount);
+    }
   }
 });
 
+const achievmentConditionMap = {
+  city: ["city", "social", "wealth", 1],
+
+  election: ["achievement", "city", "wealth", 10],
+  defense: ["achievement", "city", "wealth", 100],
+
+  business: ["city", "social", "wealth", 1],
+  agriculture: ["achievement", "business", "wealth", 10],
+  coal: ["achievement", "business", "wealth", 50],
+  oil: ["achievement", "business", "wealth", 100],
+  chemical: ["achievement", "business", "wealth", 150]
+};
+
+const achievementAugmentationMap = {
+  city: ["social", "wealthrate", 1.5],
+  business: ["social", "wealthrate", 1.5]
+};
+
 const initialAchievementState = {
-  updates: {
-    city: {
-      name: "city",
-      plural: "cities",
-      achieved: false,
-      condition: ["social", "wealth", { type: "gt", amount: 1 }],
-      augmentation: ["social", "wealthrate", 1.5]
-    },
-    business: {
-      name: "business",
-      plural: "businesses",
-      achieved: false,
-      condition: ["social", "wealth", { type: "gt", amount: 1000 }],
-      augmentation: ["social", "wealth", 1.5]
-    }
+  city: {
+    name: "city",
+    wealth: 0,
+    taxpercentage: 0.01,
+    taxtimeout: 30e3,
+
+    achieved: false
+  },
+  business: {
+    name: "business",
+    wealth: 0,
+    investpercentage: 0.01,
+    investtimeout: 30e3,
+
+    achieved: false
+  },
+  agriculture: {
+    name: "agriculture",
+    achieved: false
+  },
+  coal: {
+    name: "coal",
+    achieved: false
+  },
+  chemical: {
+    name: "chemical",
+    achieved: false
+  },
+  election: {
+    name: "election",
+    achieved: false
+  },
+  defense: {
+    name: "defense",
+    achieved: false
   }
 };
 
@@ -80,41 +125,47 @@ const achievement = createSlice({
   name: "achievement",
   initialState: initialAchievementState,
   reducerMap: {
-    runAchievement: (state, { payload: { city } }) => {
-      const ups = achiementCondition(city, state.updates);
-      if (!ups.length) return state;
+    runAchievement: (city, { payload: state }) => {
+      const ups = achiementCondition(state);
+      if (!ups.length) return city;
       return update(
-        state,
-        ups.map(({ name }) => [["updates", name, "achieved"], () => true])
+        city,
+        ups.map(({ name }) => [[name, "achieved"], () => true])
       );
+    },
+    changeWealth: (state, { payload: { name, amount } }) => {
+      assert("wealth" in get(state, [name]), "must have `wealth` to change it");
+      assert(
+        get(state, [name, "wealth"]) + amount > 0,
+        "`wealth` cannot be made negative"
+      );
+      return update(state, [name, "wealth"], wealth => wealth + amount);
     }
   }
 });
 
-const achiementCondition_single = (city, update) => {
-  if (update.achieved) return false;
-  const [key, [arithmetic]] = partition(
-    update.condition,
+const achiementCondition_single = (state, ach) => {
+  if (ach.achieved) return false;
+  const [key, [amount]] = partition(
+    achievmentConditionMap[ach.name],
     key => typeof key === "string"
   );
-  switch (arithmetic.type) {
-    case "gt":
-      return get(city, key) > arithmetic.amount;
-    default:
-      throw new Error();
-  }
+  return get(state, key) > amount;
 };
 
-const achiementCondition = (city, updates) =>
-  Object.values(updates).filter(update =>
-    achiementCondition_single(city, update)
+const achiementCondition = state =>
+  Object.values(state.achievement).filter(ach =>
+    achiementCondition_single(state, ach)
   );
 
-const achievementAugmentation = (city, updates, filterKeys = []) => {
-  const augmentations = Object.values(updates)
+const achievementAugmentation = (achievment, filterKeys = []) => {
+  const augmentations = Object.values(achievment)
     .filter(({ achieved }) => achieved)
     .map(update =>
-      partition(update.augmentation, key => typeof key === "string")
+      partition(
+        achievementAugmentationMap[update.name],
+        key => typeof key === "string"
+      )
     )
     .map(([key, [multiplier]]) => ({
       key,
@@ -127,17 +178,72 @@ const achievementAugmentation = (city, updates, filterKeys = []) => {
   ]);
 };
 
-const Achievement = ({ achievement: { updates } }) => {
+const CityAchievement = ({ onChange, ...ach }) => {
+  const { waiting, reset } = useTimeout(ach.taxtimeout);
+  return (
+    <>
+      <h3>{ach.name}</h3>
+
+      <button
+        disabled={waiting}
+        onClick={() => {
+          reset();
+          onChange({ name: ach.name, type: "tax" });
+        }}
+      >
+        tax {Math.floor(100 * ach.taxpercentage)}%
+      </button>
+
+      <section>{ach.wealth.toFixed(2)} wealth</section>
+    </>
+  );
+};
+
+const BusinessAchievement = ({ onChange, ...ach }) => {
+  const { waiting, reset } = useTimeout(ach.investtimeout);
+  return (
+    <>
+      <h3>{ach.name}</h3>
+
+      <button
+        disabled={waiting}
+        onClick={() => {
+          reset();
+          onChange({ name: ach.name, type: "invest" });
+        }}
+      >
+        tax {Math.floor(100 * ach.investpercentage)}%
+      </button>
+
+      <section>{ach.wealth.toFixed(2)} wealth</section>
+    </>
+  );
+};
+
+const SwitchAchievement = ({ onChange, ...ach }) => {
+  switch (ach.name) {
+    case "city":
+      return <CityAchievement onChange={onChange} {...ach} />;
+    case "business":
+      return <BusinessAchievement onChange={onChange} {...ach} />;
+    default:
+      return ach.name + " unlocked!";
+  }
+};
+
+const Achievement = ({ achievement, onChange }) => {
   return (
     <>
       <h2>Achievment</h2>
 
       <section>
         <ul>
-          {Object.values(updates)
+          {Object.values(achievement)
             .filter(({ achieved }) => achieved)
-            .map(({ name }) => (
-              <li key={name}>{name}</li>
+            .map(ach => (
+              <li key={ach.name}>
+                <SwitchAchievement {...ach} onChange={onChange} />
+              </li>
             ))}
         </ul>
       </section>
@@ -147,15 +253,22 @@ const Achievement = ({ achievement: { updates } }) => {
 
 const App = () => {
   const [state, dispatch] = useSliceState({ city, achievement });
+  const cityWithAchievementAugments = update(
+    state.city,
+    achievementAugmentation(state.city, state.achievement)
+  );
   useInterval(
     payload => dispatch(achievement.actions.runAchievement(payload)),
-    { city: state.city },
-    15e3
+    state,
+    1.5e3
   );
-  const cityWithAchievementUpdates = update(
-    state.city,
-    achievementAugmentation(state.city, state.achievement.updates)
-  );
+  useInterval(() => {
+    dispatch(
+      city.actions.incWealth({
+        multiplier: get(cityWithAchievementAugments, ["social", "wealthrate"])
+      })
+    );
+  }, 1000);
   useInterval(
     ({}) => {
       const isSocialMobile = state.city.social.population > 2;
@@ -167,15 +280,6 @@ const App = () => {
     },
     {},
     3e3
-  );
-  useInterval(
-    () =>
-      dispatch(
-        city.actions.incWealth({
-          multiplier: get(cityWithAchievementUpdates, ["social", "wealthrate"])
-        })
-      ),
-    1000
   );
   useInterval(
     () =>
@@ -220,7 +324,45 @@ const App = () => {
       </div>
 
       <div className="panel">
-        <Achievement achievement={state.achievement} />
+        <Achievement
+          achievement={state.achievement}
+          onChange={({ name, type }) => {
+            switch (`${name}/${type}`) {
+              case "business/invest":
+                {
+                  const change =
+                    state.achievement[name].investpercentage *
+                    state.city.social.wealth;
+                  [
+                    city.actions.changeWealth({
+                      stateType: "social",
+                      amount: -change
+                    }),
+                    achievement.actions.changeWealth({ name, amount: change })
+                  ].forEach(dispatch);
+                }
+                break;
+
+              case "city/tax":
+                {
+                  const change =
+                    state.achievement[name].taxpercentage *
+                    state.city.social.wealth;
+                  [
+                    city.actions.changeWealth({
+                      stateType: "social",
+                      amount: -change
+                    }),
+                    achievement.actions.changeWealth({ name, amount: change })
+                  ].forEach(dispatch);
+                }
+                break;
+              default:
+                console.error({ name, type });
+                throw new Error("not implemented");
+            }
+          }}
+        />
       </div>
     </div>
   );

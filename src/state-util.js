@@ -108,6 +108,17 @@ export const useInterval = (fn, args, ms) => {
   }, [fn, ms, ...(ms && Object.values(args))]);
 };
 
+export const useTimeout = ms => {
+  const [waiting, reset] = React.useState(false);
+  return {
+    waiting,
+    reset: () => {
+      reset(true);
+      setTimeout(() => reset(false), ms);
+    }
+  };
+};
+
 export const sampleBetween = (lhs, rhs) => {
   const least = Math.min(lhs, rhs);
   const dist = rhs + lhs;
