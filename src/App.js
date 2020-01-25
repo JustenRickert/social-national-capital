@@ -1,101 +1,227 @@
-import React, { useReducer, useRef } from "react";
-import { combineReducers } from "@reduxjs/toolkit";
-import { initialCityState, createCitySlice } from "./city-module.js";
-import { initialUpgradeState, createUpgradeSlice } from "./city-upgrades.js";
-import { computeUpgradeCost, computeOfficialMax } from "./city-utils";
-import City, { useCityInterval } from "./City.js";
-import Establishments from "./Establishments.js";
-import { UpgradeMenu } from "./CityUpgrade.js";
-import { SOCIAL, NATIONAL, PROPAGANDA } from "./constants.js";
-import "./App.css";
+import React, { useRef } from "react";
 
-const App = ({ defaultState }) => {
-  const citySlice = useRef(createCitySlice());
-  const upgradeSlice = useRef(createUpgradeSlice());
-  const [state, dispatch] = useReducer(
-    combineReducers({
-      city: citySlice.current.reducer,
-      upgrade: upgradeSlice.current.reducer
-    }),
-    // TODO(probably): { defaultState }
-    {
-      city: initialCityState,
-      upgrade: initialUpgradeState
+import {
+  combineReducers,
+  createSlice,
+  update,
+  useSliceState,
+  useInterval,
+  partition,
+  get,
+  sampleBetween
+} from "./state-util.js";
+
+import "./app.css";
+
+const initialCityState = {
+  social: {
+    population: 1,
+    classMobility: 0.01,
+
+    deathrate: 10e3,
+    birthrate: 8e3,
+    wealthrate: 0.01,
+    wealth: 0
+  },
+  national: {
+    population: 0,
+    classMobility: 0
+  },
+  capital: {
+    population: 0,
+    classMobility: 0
+  }
+};
+
+const city = createSlice({
+  name: "city",
+  initialState: initialCityState,
+  reducerMap: {
+    exchangePopulation: (state, { payload: { from, to } }) =>
+      update(state, [
+        [[from, "population"], population => population - 1],
+        [[to, "population"], population => population + 1]
+      ]),
+    incPopulation: (state, { payload: stateType }) =>
+      update(state, [stateType, "population"], population => population + 1),
+    changePopulation: (state, { payload: { stateType, amount } }) =>
+      update(state, [stateType, "population"], population =>
+        Math.max(0, population + amount)
+      ),
+    incWealth: (state, { payload: { multiplier } }) =>
+      update(
+        state,
+        ["social", "wealth"],
+        wealth => wealth + multiplier * state.social.population
+      )
+  }
+});
+
+const initialAchievementState = {
+  updates: {
+    city: {
+      name: "city",
+      plural: "cities",
+      achieved: false,
+      condition: ["social", "wealth", { type: "gt", amount: 1 }],
+      augmentation: ["social", "wealthrate", 1.5]
+    },
+    business: {
+      name: "business",
+      plural: "businesses",
+      achieved: false,
+      condition: ["social", "wealth", { type: "gt", amount: 1000 }],
+      augmentation: ["social", "wealth", 1.5]
     }
+  }
+};
+
+const achievement = createSlice({
+  name: "achievement",
+  initialState: initialAchievementState,
+  reducerMap: {
+    runAchievement: (state, { payload: { city } }) => {
+      const ups = achiementCondition(city, state.updates);
+      if (!ups.length) return state;
+      return update(
+        state,
+        ups.map(({ name }) => [["updates", name, "achieved"], () => true])
+      );
+    }
+  }
+});
+
+const achiementCondition_single = (city, update) => {
+  if (update.achieved) return false;
+  const [key, [arithmetic]] = partition(
+    update.condition,
+    key => typeof key === "string"
+  );
+  switch (arithmetic.type) {
+    case "gt":
+      return get(city, key) > arithmetic.amount;
+    default:
+      throw new Error();
+  }
+};
+
+const achiementCondition = (city, updates) =>
+  Object.values(updates).filter(update =>
+    achiementCondition_single(city, update)
   );
 
-  const handleWealthUpdate = () => {
-    dispatch(
-      cityActions.updateWealth({ stateType: SOCIAL, upgrade: state.upgrade })
-    );
-  };
+const achievementAugmentation = (city, updates, filterKeys = []) => {
+  const augmentations = Object.values(updates)
+    .filter(({ achieved }) => achieved)
+    .map(update =>
+      partition(update.augmentation, key => typeof key === "string")
+    )
+    .map(([key, [multiplier]]) => ({
+      key,
+      multiplier
+    }))
+    .filter(({ key }) => filterKeys.every((fk, i) => key[i] === fk));
+  return augmentations.map(({ key, multiplier }) => [
+    key,
+    value => multiplier * value
+  ]);
+};
 
-  // this should maybe(?) not be tied up in the React render cycle... :shrug:
-  const { actions: cityActions } = citySlice.current;
-  const { [SOCIAL]: social, [NATIONAL]: national } = state.city;
-  useCityInterval({
-    onNationalChange: () => {
-      const officialMax = computeOfficialMax(state);
-      if (national.officials < officialMax)
-        dispatch(cityActions.officiateWorker());
-
-      if (national.officials) {
-        if (Math.random() < national.taxchance)
-          dispatch(cityActions.socialTax({ upgrade: state.upgrade }));
-      }
-    },
-    onSocialChange: () => {
-      handleWealthUpdate();
-      if (
-        Math.random() <= social.fightPropagandachance &&
-        social.nationalAlignment > 0
-      )
-        dispatch(cityActions.socialFightPropaganda());
-
-      if (social.workers > 100 / 0.95 && Math.random() < social.deathchance)
-        dispatch(cityActions.workerDeath());
-
-      if (Math.random() < social.birthchance)
-        dispatch(cityActions.workerBirth());
-    }
-  });
-
-  const handlePurchaseUpgrade = ({ stateType, establishmentKey }) => {
-    const { actions: upgradeActions } = upgradeSlice.current;
-    dispatch(upgradeActions.upgradeUpgrade({ stateType, establishmentKey }));
-    const amount = computeUpgradeCost(
-      stateType,
-      establishmentKey,
-      state.upgrade
-    );
-    dispatch(cityActions.tax({ stateType, amount }));
-  };
-
+const Achievement = ({ achievement: { updates } }) => {
   return (
-    <div className="App">
-      <UpgradeMenu {...state} onPurchaseUpgrade={handlePurchaseUpgrade} />
-      <City
-        {...state}
-        onLevelEstablishment={establishment => {
-          dispatch(citySlice.current.actions.levelEstablishment(establishment));
-        }}
-        onUpgradeEstablishment={action => {
-          dispatch(citySlice.current.actions.upgradeEstablishment(action));
-        }}
-      />
-      <Establishments
-        {...state}
-        onEstablishmentEvent={e => {
-          switch (e.type) {
-            case PROPAGANDA:
-              dispatch(citySlice.current.actions.nationalCreatePropaganda());
-              break;
-            default:
-              throw new Error();
-          }
-          console.log("establishment event", e);
-        }}
-      />
+    <>
+      <h2>Achievment</h2>
+
+      <section>
+        <ul>
+          {Object.values(updates)
+            .filter(({ achieved }) => achieved)
+            .map(({ name }) => (
+              <li key={name}>{name}</li>
+            ))}
+        </ul>
+      </section>
+    </>
+  );
+};
+
+const App = () => {
+  const [state, dispatch] = useSliceState({ city, achievement });
+  useInterval(
+    payload => dispatch(achievement.actions.runAchievement(payload)),
+    { city: state.city },
+    15e3
+  );
+  const cityWithAchievementUpdates = update(
+    state.city,
+    achievementAugmentation(state.city, state.achievement.updates)
+  );
+  useInterval(
+    ({}) => {
+      const isSocialMobile = state.city.social.population > 2;
+      if (isSocialMobile)
+        ["national", "captial"].forEach(to => {
+          if (Math.random() < state.city.social.classMobility)
+            city.actions.exchangePopulation({ from: "social", to });
+        });
+    },
+    {},
+    3e3
+  );
+  useInterval(
+    () =>
+      dispatch(
+        city.actions.incWealth({
+          multiplier: get(cityWithAchievementUpdates, ["social", "wealthrate"])
+        })
+      ),
+    1000
+  );
+  useInterval(
+    () =>
+      dispatch(
+        city.actions.changePopulation({ stateType: "social", amount: 1 })
+      ),
+    state.city.social.birthrate
+  );
+  useInterval(
+    () =>
+      dispatch(
+        city.actions.changePopulation({ stateType: "social", amount: -1 })
+      ),
+    state.city.social.deathrate
+  );
+  return (
+    <div className="app">
+      <div className="panel">
+        <h2>City</h2>
+        <section>
+          <h3>social</h3>
+          <button
+            onClick={() => dispatch(city.actions.incPopulation("social"))}
+            children="clicker"
+          />
+          <p>
+            {state.city.social.population} workers
+            {", "}
+            {state.city.social.wealth.toFixed(2)} wealth
+          </p>
+        </section>
+
+        <section>
+          <h3>national</h3>
+          <p>{state.city.national.population} bureaucrats</p>
+        </section>
+
+        <section>
+          <h3>capital</h3>
+          <p>{state.city.capital.population} aristocrats</p>
+        </section>
+      </div>
+
+      <div className="panel">
+        <Achievement achievement={state.achievement} />
+      </div>
     </div>
   );
 };
