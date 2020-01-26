@@ -1,35 +1,47 @@
 import React from "react";
-import {
-  combineReducers,
-  createSlice,
-  update,
-  useSliceState,
-  useInterval,
-  partition,
-  get,
-  sampleBetween,
-  useTimeout
-} from "./state-util.js";
-import { assert } from "./util";
+import { useTimeout } from "./state-util.js";
 
-const CityAchievement = ({ onChange, ...ach }) => {
-  const { waiting, reset } = useTimeout(ach.taxtimeout);
+const ElectionAchievment = ({ onChange, ...props }) => {
+  // if (!props.achieved) return null;
+  const { waiting, reset } = useTimeout(5e3);
   return (
-    <>
-      <h3>{ach.name}</h3>
+    <section>
+      <h4>{props.name}</h4>
 
       <button
         disabled={waiting}
         onClick={() => {
           reset();
-          onChange({ name: ach.name, type: "tax" });
+          onChange({ name: props.name, type: "holdelection" });
         }}
       >
-        tax {Math.floor(100 * ach.taxpercentage)}%
+        election
+      </button>
+    </section>
+  );
+};
+
+const CityAchievement = ({ onChange, election, ...props }) => {
+  const { waiting, reset } = useTimeout(props.taxtimeout);
+  if (!props.achieved) return null;
+  return (
+    <li>
+      <h3>{props.name}</h3>
+
+      <button
+        disabled={waiting}
+        onClick={() => {
+          reset();
+          onChange({ name: props.name, type: "tax" });
+        }}
+      >
+        tax {Math.floor(100 * props.taxpercentage)}%
       </button>
 
-      <section>{ach.wealth.toFixed(2)} wealth</section>
-    </>
+      <section>{props.wealth.toFixed(2)} wealth</section>
+
+      <ElectionAchievment onChange={onChange} {...election} />
+    </li>
   );
 };
 
@@ -68,10 +80,11 @@ const SwitchAchievement = props => {
   switch (props.name) {
     case "hospital":
       return <HospitalAchievement {...props} />;
-    case "city":
-      return <CityAchievement {...props} />;
     case "business":
       return <BusinessAchievement {...props} />;
+    case "city":
+    case "election":
+      return null;
     default:
       return props.name + " unlocked!";
   }
@@ -83,7 +96,12 @@ export const Achievement = ({ achievement, onChange }) => {
       <h2>Achievment</h2>
 
       <section>
-        <ul>
+        <ul className="achievement-list">
+          <CityAchievement
+            {...achievement.city}
+            onChange={onChange}
+            election={achievement.election}
+          />
           {Object.values(achievement)
             .filter(({ achieved }) => achieved)
             .map(ach => (

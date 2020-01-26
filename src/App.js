@@ -1,41 +1,41 @@
-import React, { useRef } from "react";
+import React from "react";
 
 import { city, achievement } from "./state.js";
 import { City } from "./City.js";
 import { Achievement } from "./Achievement.js";
 import {
-  combineReducers,
-  createSlice,
   update,
   useSliceState,
   useInterval,
   partition,
-  get,
-  sampleBetween,
-  useTimeout
+  get
 } from "./state-util.js";
 import { assert } from "./util.js";
 import "./app.css";
 
-// prettier-ignore
+const and = (...conditions) => ({ type: "and", value: conditions });
+
 const achievmentConditionMap = {
-  city:           ["city", "social", "wealth", 1],
-  hospital:       ["city", "social", "wealth", 0],
+  city: ["city", "social", "wealth", 1],
+  hospital: ["city", "social", "wealth", 0],
   firedepartment: ["city", "social", "wealth", 100],
 
-  election:       ["achievement", "city", "wealth", 10],
-  defense:        ["achievement", "city", "wealth", 100],
+  election: ["achievement", "city", "wealth", 10],
+  government: ["city", "national", "population", 10],
+  defense: and(
+    ["achievement", "city", "wealth", 100],
+    ["city", "social", "wealth", 1000]
+  ),
 
-  business:       ["city", "social", "wealth", 1],
-  agriculture:    ["achievement", "business", "wealth", 10],
-  coal:           ["achievement", "business", "wealth", 50],
-  oil:            ["achievement", "business", "wealth", 100],
-  chemical:       ["achievement", "business", "wealth", 150]
+  business: ["city", "social", "wealth", 1],
+  agriculture: ["achievement", "business", "wealth", 10],
+  coal: ["achievement", "business", "wealth", 50],
+  oil: ["achievement", "business", "wealth", 100],
+  chemical: ["achievement", "business", "wealth", 150]
 };
 
-// prettier-ignore
 const achievementAugmentationMap = {
-  city:     ["social", "wealthrate", 1.5],
+  city: ["social", "wealthrate", 1.5],
   business: ["social", "wealthrate", 1.5],
   hospital: ["social", "taxrate", 1.5]
 };
@@ -43,24 +43,36 @@ const achievementAugmentationMap = {
 const hitsAchievementCondition = (state, ach) => {
   if (ach.achieved) return false;
   if (!achievmentConditionMap[ach.name]) return false;
+  switch (achievmentConditionMap[ach.name].type) {
+    case "and": {
+      return achievmentConditionMap[ach.name].value.every(keys => {
+        const [key, [amount]] = partition(keys, key => typeof key === "string");
+        return get(state, key) >= amount;
+      });
+    }
+    default:
+      break;
+  }
   const [key, [amount]] = partition(
     achievmentConditionMap[ach.name],
     key => typeof key === "string"
   );
-  return get(state, key) > amount;
+  return get(state, key) >= amount;
 };
 
-export const achiementCondition = state =>
+export const achievementConditions = state =>
   Object.values(state.achievement).filter(ach =>
     hitsAchievementCondition(state, ach)
   );
 
 const achievementAugmentation = (achievment, filterKeys = []) => {
   const augmentations = Object.values(achievment)
-    .filter(({ achieved }) => achieved)
-    .map(update =>
+    .filter(
+      ({ name, achieved }) => achieved && achievementAugmentationMap[name]
+    )
+    .map(({ name }) =>
       partition(
-        achievementAugmentationMap[update.name],
+        achievementAugmentationMap[name],
         key => typeof key === "string"
       )
     )
@@ -99,9 +111,15 @@ const App = () => {
         amount: (1 - taxrate) * growth
       })
     );
+    dispatch(
+      city.actions.changeWealth({
+        stateType: "national",
+        amount: taxrate * growth
+      })
+    );
   }, 1000);
   useInterval(
-    ({}) => {
+    () => {
       const isSocialMobile = state.city.social.population > 2;
       if (isSocialMobile)
         ["national", "captial"].forEach(to => {
@@ -129,6 +147,18 @@ const App = () => {
 
   const handleAchievementChange = ({ name, type }) => {
     switch (`${name}/${type}`) {
+      case "election/holdelection":
+        assert(
+          state.city.social.population - 1 > 0,
+          "TODO: this shouldn't be able to happen"
+        );
+        dispatch(
+          city.actions.exchangePopulation({
+            from: "social",
+            to: "national"
+          })
+        );
+        break;
       case "business/invest":
         {
           const change =

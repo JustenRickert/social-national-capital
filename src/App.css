@@ -10,3 +10,8 @@ body {}
 .panel > h2 {
     text-align: center;
 }
+
+ul.achievement-list {
+    margin-block-start: 0;
+    list-style-type: none;
+}

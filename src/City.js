@@ -1,6 +1,6 @@
 import React from "react";
 
-import { get, partition } from "./state-util.js";
+import { get } from "./state-util.js";
 
 const runKeyfn = (state, [key, fn]) => fn(get(state, key));
 
@@ -25,16 +25,19 @@ export const City = ({ city, cityWithAugments, onChange }) => {
         <p>
           {city.social.population} workers
           {", "}
-          {city.social.wealth.toFixed(2)} wealth
-          {", "}
+          {city.social.wealth.toFixed(2)}+
           {cityWithAugments.social.wealthrate.toFixed(2)}-
-          {(100 * cityWithAugments.social.taxrate).toFixed(1)}%/worker
+          {(100 * cityWithAugments.social.taxrate).toFixed(1)}%/worker wealth
         </p>
       </section>
 
       <section>
         <h3>national</h3>
-        <p>{city.national.population} bureaucrats</p>
+        <p>
+          {city.national.population} bureaucrats{", "}
+          {city.national.wealth.toFixed(2)}+
+          {(100 * city.social.taxrate).toFixed(1)}%/worker wealth
+        </p>
       </section>
 
       <section>

@@ -1,17 +1,7 @@
-import {
-  combineReducers,
-  createSlice,
-  update,
-  useSliceState,
-  useInterval,
-  partition,
-  get,
-  sampleBetween,
-  useTimeout
-} from "./state-util.js";
+import { createSlice, update, get } from "./state-util.js";
 import { assert } from "./util";
 // TODO CIRCULAR import
-import { achiementCondition } from "./App.js";
+import { achievementConditions } from "./App.js";
 
 const initialCityState = {
   social: {
@@ -26,7 +16,8 @@ const initialCityState = {
   },
   national: {
     population: 0,
-    treasury: 0
+
+    wealth: 0
   },
   capital: {
     population: 0
@@ -75,7 +66,24 @@ const initialAchievementState = {
   },
   hospital: {
     name: "hospital",
-    taxpercentage: 0.01
+    taxpercentage: 0.01,
+    achieved: false
+  },
+  firedepartment: {
+    name: "firedepartment",
+    achieved: false
+  },
+  election: {
+    name: "election",
+    achieved: false
+  },
+  government: {
+    name: "government",
+    achieved: false
+  },
+  defense: {
+    name: "defense",
+    achieved: false
   },
   business: {
     name: "business",
@@ -96,14 +104,6 @@ const initialAchievementState = {
   chemical: {
     name: "chemical",
     achieved: false
-  },
-  election: {
-    name: "election",
-    achieved: false
-  },
-  defense: {
-    name: "defense",
-    achieved: false
   }
 };
 
@@ -112,7 +112,7 @@ export const achievement = createSlice({
   initialState: initialAchievementState,
   reducerMap: {
     runAchievement: (city, { payload: state }) => {
-      const ups = achiementCondition(state);
+      const ups = achievementConditions(state);
       if (!ups.length) return city;
       return update(
         city,
