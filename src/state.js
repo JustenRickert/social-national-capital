@@ -8,11 +8,18 @@ const initialCityState = {
     population: 1,
 
     deathrate: 10e3,
+    deathpercentage: 0.02,
+    // time between births
     birthrate: 8e3,
-    wealthrate: 0.01,
-    taxrate: 0.001,
+    // percentage growth
+    birthpercentage: 0.04,
 
-    wealth: 0
+    // wealth per second
+    wealthrate: 0.01,
+    // wealth per second transferred to national
+    taxpercentage: 0.001,
+
+    wealth: 1e6
   },
   national: {
     population: 0,
@@ -54,26 +61,52 @@ export const city = createSlice({
   }
 });
 
+// `achivement.updates` is a nested object whose leaves correspond to scalars of
+// the corresponding values in state. Multiples updates to the same key should
+// are treated correctly since multiplication is associative.
 const initialAchievementState = {
   city: {
     name: "city",
     wealth: 0,
     taxpercentage: 0.01,
     taxtimeout: 30e3,
-
+    cityupdates: {
+      social: {
+        taxpercentage: 1.1,
+        deathrate: 0.85
+      }
+    },
     achieved: false
   },
   hospital: {
     name: "hospital",
-    taxpercentage: 0.01,
+    cityupdates: {
+      social: {
+        taxpercentage: 1.5,
+        deathrate: 1.2,
+        birthpercentage: 1.1
+      }
+    },
     achieved: false
   },
   firedepartment: {
     name: "firedepartment",
+    cityupdates: {
+      social: {
+        taxpercentage: 1.1,
+        deathrate: 1.1,
+        deathpercentage: 0.95
+      }
+    },
     achieved: false
   },
   election: {
     name: "election",
+    cityupdates: {
+      social: {
+        taxpercentage: 1.1
+      }
+    },
     achieved: false
   },
   government: {

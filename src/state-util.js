@@ -135,15 +135,6 @@ export const useTimeout = ms => {
   };
 };
 
-export const readLocalStorage = (name = "usergamedata") => {
-  const item = localStorage.getItem(name);
-  return item && JSON.parse(item);
-};
-
-export const writeLocalStorage = (name, state) => {
-  localStorage.setItem(name, JSON.stringify(state));
-};
-
 export const sampleBetween = (lhs, rhs) => {
   const least = Math.min(lhs, rhs);
   const dist = rhs + lhs;

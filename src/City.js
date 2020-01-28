@@ -1,6 +1,6 @@
 import React from "react";
 
-import { get, useInterval } from "./state-util.js";
+import { get, useInterval, randomDeviation } from "./state-util.js";
 import { assert } from "./util.js";
 
 const runKeyfn = (state, [key, fn]) => fn(get(state, key));
@@ -19,13 +19,29 @@ const tap = x => (console.log(x), x);
 export const usePopulationGrowth = ({}) => {};
 
 export const useCityLifeAndDeathInterval = ({ city, changePopulation }) => {
+  const {
+    social: {
+      population,
+      birthrate,
+      birthpercentage,
+      deathrate,
+      deathpercentage
+    }
+  } = city;
+  const birthamount = Math.ceil(
+    randomDeviation(population * birthpercentage, 0.1)
+  );
+  const deathamount = Math.floor(
+    randomDeviation(population * deathpercentage, 0.1)
+  );
+
   useInterval(
-    () => changePopulation({ stateType: "social", amount: 1 }),
-    city.social.birthrate
+    () => changePopulation({ stateType: "social", amount: birthamount }),
+    birthrate
   );
   useInterval(
-    () => changePopulation({ stateType: "social", amount: -1 }),
-    city.social.deathrate
+    () => changePopulation({ stateType: "social", amount: -deathamount }),
+    deathrate
   );
 };
 
@@ -34,8 +50,8 @@ export const useCitySocialWealthChangeInterval = ({ city, changeWealth }) => {
     const { population, wealth } = city.social;
     const growthrate = get(city, ["social", "wealthrate"]);
     const growth = growthrate * population;
-    const taxrate = get(city, ["social", "taxrate"]);
-    const tax = taxrate * growth;
+    const taxpercentage = get(city, ["social", "taxpercentage"]);
+    const tax = taxpercentage * growth;
     changeWealth({
       stateType: "social",
       amount: growth - tax
@@ -59,7 +75,7 @@ export const City = ({ city, onChange }) => {
           {social.population} workers
           {", "}
           {social.wealth.toFixed(2)}+{social.wealthrate.toFixed(2)}-
-          {(100 * social.taxrate).toFixed(1)}%/worker wealth
+          {(100 * social.taxpercentage).toFixed(1)}%/worker wealth
         </p>
       </section>
 
@@ -67,7 +83,7 @@ export const City = ({ city, onChange }) => {
         <h3>national</h3>
         <p>
           {national.population} bureaucrats{", "}
-          {national.wealth.toFixed(2)}+{(100 * social.taxrate).toFixed(1)}
+          {national.wealth.toFixed(2)}+{(100 * social.taxpercentage).toFixed(1)}
           %/worker treasury
         </p>
       </section>

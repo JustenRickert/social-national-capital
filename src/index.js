@@ -1,12 +1,7 @@
 import React, { useEffect, useState } from "react";
 import ReactDOM from "react-dom";
 import App from "./App";
-import {
-  createStore,
-  combineReducers,
-  readLocalStorage,
-  writeLocalStorage
-} from "./state-util";
+import { createStore, combineReducers } from "./state-util";
 import { city, achievement } from "./state.js";
 
 const stateTree = {
@@ -14,7 +9,16 @@ const stateTree = {
   achievement: undefined
 };
 
-const readAppStateFromLocalStorage = (paths, precedingPath = "") => {
+const readLocalStorage = name => {
+  const item = localStorage.getItem(name);
+  return item && JSON.parse(item);
+};
+
+const writeLocalStorage = (name, state) => {
+  localStorage.setItem(name, JSON.stringify(state));
+};
+
+const readAppStateFromLocalStorage = (paths, precedingPath = "state") => {
   if (!paths) return readLocalStorage(precedingPath) || undefined;
   return Object.entries(paths).reduce(
     (acc, [key, value]) => ({
@@ -25,7 +29,11 @@ const readAppStateFromLocalStorage = (paths, precedingPath = "") => {
   );
 };
 
-const writeAppStateFromLocalStorage = (state, paths, precedingPath = "") => {
+const writeAppStateFromLocalStorage = (
+  state,
+  paths,
+  precedingPath = "state"
+) => {
   if (!paths) {
     writeLocalStorage(precedingPath, state);
     return;
@@ -37,10 +45,8 @@ const writeAppStateFromLocalStorage = (state, paths, precedingPath = "") => {
 
 ReactDOM.render(
   <App
-    initialState={readAppStateFromLocalStorage(stateTree, "state")}
-    handleSave={state =>
-      writeAppStateFromLocalStorage(state, stateTree, "state")
-    }
+    initialState={readAppStateFromLocalStorage(stateTree)}
+    handleSave={state => writeAppStateFromLocalStorage(state, stateTree)}
   />,
   document.getElementById("root")
 );

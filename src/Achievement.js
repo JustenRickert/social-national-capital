@@ -71,7 +71,10 @@ const HospitalAchievement = props => {
     <>
       <h3>{props.name}</h3>
 
-      <p>increases social taxes by {(100 * props.taxpercentage).toFixed(1)}%</p>
+      <p>
+        increases social taxes by{" "}
+        {props.cityupdates.social.taxpercentage.toFixed(1)}%
+      </p>
     </>
   );
 };

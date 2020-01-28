@@ -25,9 +25,9 @@ const and = (...conditions) => ({ type: "and", value: conditions });
 
 const achievmentConditionMap = {
   city: ["city", "social", "wealth", 1],
-  hospital: ["city", "social", "wealth", 0],
+  school: ["city", "social", "wealth", 10],
+  hospital: ["city", "social", "wealth", 50],
   firedepartment: ["city", "social", "wealth", 100],
-
   election: ["achievement", "city", "wealth", 10],
   government: ["city", "national", "population", 10],
   defense: ["achievement", "city", "wealth", 100],
@@ -36,12 +36,6 @@ const achievmentConditionMap = {
   coal: ["achievement", "business", "wealth", 50],
   oil: ["achievement", "business", "wealth", 100],
   chemical: ["achievement", "business", "wealth", 150]
-};
-
-const achievementAugmentationMap = {
-  city: ["social", "wealthrate", 1.5],
-  business: ["social", "wealthrate", 1.5],
-  hospital: ["social", "taxrate", 1.5]
 };
 
 const hitsAchievementCondition = (state, ach) => {
@@ -71,32 +65,28 @@ export const achievementConditions = state =>
     hitsAchievementCondition(state, ach)
   );
 
-const achievementAugmentation = (achievment, filterKeys = []) => {
-  const augmentations = Object.values(achievment)
-    .filter(
-      ({ name, achieved }) => achieved && achievementAugmentationMap[name]
-    )
-    .map(({ name }) =>
-      partition(
-        achievementAugmentationMap[name],
-        key => typeof key === "string"
-      )
-    )
-    .map(([key, [multiplier]]) => ({
-      key,
-      multiplier
-    }))
-    .filter(({ key }) => filterKeys.every((fk, i) => key[i] === fk));
-  return augmentations.map(({ key, multiplier }) => [
-    key,
-    value => multiplier * value
-  ]);
-};
+const toUpdateMultiplier = (o, path = []) =>
+  Object.entries(o).reduce((acc, [key, value]) => {
+    if (typeof value === "object")
+      acc.push(...toUpdateMultiplier(value, path.concat(key)));
+    else acc.push([path.concat(key), v => v * value]);
+    return acc;
+  }, []);
+
+const achievementUpdates = (achievments, collected = []) =>
+  Object.entries(achievments)
+    .filter(([, { achieved, cityupdates }]) => achieved && cityupdates)
+    .reduce(
+      (acc, [, { cityupdates }]) => acc.concat(toUpdateMultiplier(cityupdates)),
+      []
+    );
 
 const App = ({ initialState, handleSave }) => {
   const [state, dispatch] = useSliceState({ city, achievement }, initialState);
-  const augments = achievementAugmentation(state.achievement);
-  const cityWithAchievementAugments = update(state.city, augments);
+  const updates = achievementUpdates(state.achievement);
+  const cityWithAchievementAugments = update(state.city, updates);
+
+  useInterval(state => handleSave(state), state, 10e3);
 
   useInterval(
     payload => dispatch(achievement.actions.runAchievement(payload)),
