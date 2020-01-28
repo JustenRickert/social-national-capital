@@ -16,7 +16,6 @@ const initialCityState = {
   },
   national: {
     population: 0,
-
     wealth: 0
   },
   capital: {
@@ -28,10 +27,10 @@ export const city = createSlice({
   name: "city",
   initialState: initialCityState,
   reducerMap: {
-    exchangePopulation: (state, { payload: { from, to } }) =>
+    exchangePopulation: (state, { payload: { from, to, amount = 1 } }) =>
       update(state, [
-        [[from, "population"], population => population - 1],
-        [[to, "population"], population => population + 1]
+        [[from, "population"], population => population - amount],
+        [[to, "population"], population => population + amount]
       ]),
     incPopulation: (state, { payload: stateType }) =>
       update(state, [stateType, "population"], population => population + 1),

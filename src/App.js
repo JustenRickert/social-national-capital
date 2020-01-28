@@ -1,14 +1,22 @@
-import React from "react";
+import React, { useEffect } from "react";
 
 import { city, achievement } from "./state.js";
-import { City } from "./City.js";
+import {
+  City,
+  useCityLifeAndDeathInterval,
+  useCitySocialWealthChangeInterval
+} from "./City.js";
 import { Achievement } from "./Achievement.js";
 import {
   update,
   useSliceState,
   useInterval,
   partition,
-  get
+  get,
+  readLocalStorage,
+  writeLocalStorage,
+  wrapDispatch,
+  composeFn
 } from "./state-util.js";
 import { assert } from "./util.js";
 import "./app.css";
@@ -22,11 +30,7 @@ const achievmentConditionMap = {
 
   election: ["achievement", "city", "wealth", 10],
   government: ["city", "national", "population", 10],
-  defense: and(
-    ["achievement", "city", "wealth", 100],
-    ["city", "social", "wealth", 1000]
-  ),
-
+  defense: ["achievement", "city", "wealth", 100],
   business: ["city", "social", "wealth", 1],
   agriculture: ["achievement", "business", "wealth", 10],
   coal: ["achievement", "business", "wealth", 50],
@@ -43,6 +47,13 @@ const achievementAugmentationMap = {
 const hitsAchievementCondition = (state, ach) => {
   if (ach.achieved) return false;
   if (!achievmentConditionMap[ach.name]) return false;
+  if (!achievmentConditionMap[ach.name].type) {
+    const [key, [amount]] = partition(
+      achievmentConditionMap[ach.name],
+      key => typeof key === "string"
+    );
+    return get(state, key) >= amount;
+  }
   switch (achievmentConditionMap[ach.name].type) {
     case "and": {
       return achievmentConditionMap[ach.name].value.every(keys => {
@@ -51,13 +62,8 @@ const hitsAchievementCondition = (state, ach) => {
       });
     }
     default:
-      break;
+      throw new Error("not implemented");
   }
-  const [key, [amount]] = partition(
-    achievmentConditionMap[ach.name],
-    key => typeof key === "string"
-  );
-  return get(state, key) >= amount;
 };
 
 export const achievementConditions = state =>
@@ -87,69 +93,41 @@ const achievementAugmentation = (achievment, filterKeys = []) => {
   ]);
 };
 
-const App = () => {
-  const [state, dispatch] = useSliceState({ city, achievement });
+const App = ({
+  initialState = readLocalStorage(),
+  handleSave = state => writeLocalStorage(state)
+}) => {
+  const [state, dispatch] = useSliceState({ city, achievement }, initialState);
   const augments = achievementAugmentation(state.achievement);
   const cityWithAchievementAugments = update(state.city, augments);
+
+  useEffect(() => {
+    return () => {
+      handleSave(state);
+    };
+  }, [state]);
 
   useInterval(
     payload => dispatch(achievement.actions.runAchievement(payload)),
     state,
     1.5e3
   );
-  useInterval(() => {
-    const { population } = state.city.social;
-    const growthrate = get(cityWithAchievementAugments, [
-      "social",
-      "wealthrate"
-    ]);
-    const growth = growthrate * population;
-    const taxrate = get(cityWithAchievementAugments, ["social", "taxrate"]);
-    dispatch(
-      city.actions.changeWealth({
-        stateType: "social",
-        amount: (1 - taxrate) * growth
-      })
-    );
-    dispatch(
-      city.actions.changeWealth({
-        stateType: "national",
-        amount: taxrate * growth
-      })
-    );
-  }, 1000);
-  useInterval(
-    () => {
-      const isSocialMobile = state.city.social.population > 2;
-      if (isSocialMobile)
-        ["national", "captial"].forEach(to => {
-          if (Math.random() < state.city.social.classMobility)
-            city.actions.exchangePopulation({ from: "social", to });
-        });
-    },
-    {},
-    3e3
-  );
-  useInterval(
-    () =>
-      dispatch(
-        city.actions.changePopulation({ stateType: "social", amount: 1 })
-      ),
-    state.city.social.birthrate
-  );
-  useInterval(
-    () =>
-      dispatch(
-        city.actions.changePopulation({ stateType: "social", amount: -1 })
-      ),
-    state.city.social.deathrate
-  );
+
+  useCitySocialWealthChangeInterval({
+    city: cityWithAchievementAugments,
+    changeWealth: composeFn(dispatch, city.actions.changeWealth)
+  });
+
+  useCityLifeAndDeathInterval({
+    city: cityWithAchievementAugments,
+    changePopulation: composeFn(dispatch, city.actions.changePopulation)
+  });
 
   const handleAchievementChange = ({ name, type }) => {
     switch (`${name}/${type}`) {
       case "election/holdelection":
         assert(
-          state.city.social.population - 1 > 0,
+          cityWithAchievementAugments.social.population - 1 > 0,
           "TODO: this shouldn't be able to happen"
         );
         dispatch(
@@ -162,7 +140,8 @@ const App = () => {
       case "business/invest":
         {
           const change =
-            state.achievement[name].investpercentage * state.city.social.wealth;
+            state.achievement[name].investpercentage *
+            cityWithAchievementAugments.social.wealth;
           [
             city.actions.changeWealth({
               stateType: "social",
@@ -175,7 +154,8 @@ const App = () => {
       case "city/tax":
         {
           const change =
-            state.achievement[name].taxpercentage * state.city.social.wealth;
+            state.achievement[name].taxpercentage *
+            cityWithAchievementAugments.social.wealth;
           [
             city.actions.changeWealth({
               stateType: "social",
@@ -205,11 +185,7 @@ const App = () => {
   return (
     <div className="app">
       <div className="panel">
-        <City
-          city={state.city}
-          cityWithAugments={cityWithAchievementAugments}
-          onChange={handleCityChange}
-        />
+        <City city={cityWithAchievementAugments} onChange={handleCityChange} />
       </div>
 
       <div className="panel">

@@ -2,8 +2,8 @@ import React from "react";
 import { useTimeout } from "./state-util.js";
 
 const ElectionAchievment = ({ onChange, ...props }) => {
-  // if (!props.achieved) return null;
   const { waiting, reset } = useTimeout(5e3);
+  if (!props.achieved) return null;
   return (
     <section>
       <h4>{props.name}</h4>

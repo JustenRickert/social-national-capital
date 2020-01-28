@@ -1,6 +1,7 @@
 import React from "react";
 
-import { get } from "./state-util.js";
+import { get, useInterval } from "./state-util.js";
+import { assert } from "./util.js";
 
 const runKeyfn = (state, [key, fn]) => fn(get(state, key));
 
@@ -15,7 +16,39 @@ const bucket = (xs, keyfn) =>
 
 const tap = x => (console.log(x), x);
 
-export const City = ({ city, cityWithAugments, onChange }) => {
+export const usePopulationGrowth = ({}) => {};
+
+export const useCityLifeAndDeathInterval = ({ city, changePopulation }) => {
+  useInterval(
+    () => changePopulation({ stateType: "social", amount: 1 }),
+    city.social.birthrate
+  );
+  useInterval(
+    () => changePopulation({ stateType: "social", amount: -1 }),
+    city.social.deathrate
+  );
+};
+
+export const useCitySocialWealthChangeInterval = ({ city, changeWealth }) => {
+  useInterval(() => {
+    const { population, wealth } = city.social;
+    const growthrate = get(city, ["social", "wealthrate"]);
+    const growth = growthrate * population;
+    const taxrate = get(city, ["social", "taxrate"]);
+    const tax = taxrate * growth;
+    changeWealth({
+      stateType: "social",
+      amount: growth - tax
+    });
+    changeWealth({
+      stateType: "national",
+      amount: tax
+    });
+  }, 1000);
+};
+
+export const City = ({ city, onChange }) => {
+  const { social, national, capital } = city;
   return (
     <>
       <h2>City</h2>
@@ -23,26 +56,25 @@ export const City = ({ city, cityWithAugments, onChange }) => {
         <h3>social</h3>
         <button onClick={() => onChange({ type: "grow" })} children="clicker" />
         <p>
-          {city.social.population} workers
+          {social.population} workers
           {", "}
-          {city.social.wealth.toFixed(2)}+
-          {cityWithAugments.social.wealthrate.toFixed(2)}-
-          {(100 * cityWithAugments.social.taxrate).toFixed(1)}%/worker wealth
+          {social.wealth.toFixed(2)}+{social.wealthrate.toFixed(2)}-
+          {(100 * social.taxrate).toFixed(1)}%/worker wealth
         </p>
       </section>
 
       <section>
         <h3>national</h3>
         <p>
-          {city.national.population} bureaucrats{", "}
-          {city.national.wealth.toFixed(2)}+
-          {(100 * city.social.taxrate).toFixed(1)}%/worker wealth
+          {national.population} bureaucrats{", "}
+          {national.wealth.toFixed(2)}+{(100 * social.taxrate).toFixed(1)}
+          %/worker treasury
         </p>
       </section>
 
       <section>
         <h3>capital</h3>
-        <p>{city.capital.population} aristocrats</p>
+        <p>{capital.population} aristocrats</p>
       </section>
     </>
   );

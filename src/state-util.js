@@ -18,6 +18,9 @@ export const get = (state, keypath, default_ = undefined) => {
   return get(state[first(keypath)], rest(keypath), default_);
 };
 
+export const composeFn = (...fns) => x =>
+  fns.reduceRight((result, fn) => fn(result), x);
+
 const updateAll = (state, keyFns) =>
   keyFns.reduce((state, [key, fn]) => update(state, key, fn), state);
 
@@ -57,6 +60,19 @@ export const combineReducers = reducerMap => (state, action) =>
       }),
     {}
   );
+
+// export const createStore = reducer => {
+//   let state = reducer();
+//   const actions = [];
+//   return {
+//     getState: () => {
+//       let action;
+//       while ((action = actions.pop())) state = reducer(state, action);
+//       return state;
+//     },
+//     dispatch: action => (actions.push(action), action)
+//   };
+// };
 
 export const useSliceState = (sliceMap, initialState = undefined) => {
   const reducer = React.useRef(
@@ -117,6 +133,19 @@ export const useTimeout = ms => {
       setTimeout(() => reset(false), ms);
     }
   };
+};
+
+export const readLocalStorage = (name = "usergamedata") => {
+  const item = localStorage.getItem(name);
+  return item && JSON.parse(item);
+};
+
+export const writeLocalStorage = (name, state) => {
+  if (!state) {
+    state = name;
+    name = "usergamedata";
+  }
+  localStorage.setItem(name, JSON.stringify(state));
 };
 
 export const sampleBetween = (lhs, rhs) => {
