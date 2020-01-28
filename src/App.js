@@ -93,19 +93,10 @@ const achievementAugmentation = (achievment, filterKeys = []) => {
   ]);
 };
 
-const App = ({
-  initialState = readLocalStorage(),
-  handleSave = state => writeLocalStorage(state)
-}) => {
+const App = ({ initialState, handleSave }) => {
   const [state, dispatch] = useSliceState({ city, achievement }, initialState);
   const augments = achievementAugmentation(state.achievement);
   const cityWithAchievementAugments = update(state.city, augments);
-
-  useEffect(() => {
-    return () => {
-      handleSave(state);
-    };
-  }, [state]);
 
   useInterval(
     payload => dispatch(achievement.actions.runAchievement(payload)),
@@ -184,6 +175,7 @@ const App = ({
 
   return (
     <div className="app">
+      <button onClick={() => handleSave(state)} children="save" />
       <div className="panel">
         <City city={cityWithAchievementAugments} onChange={handleCityChange} />
       </div>

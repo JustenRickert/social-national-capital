@@ -84,7 +84,7 @@ export const useSliceState = (sliceMap, initialState = undefined) => {
       )
     )
   );
-  const initialStateRef = React.useRef(initialState || reducer.current());
+  const initialStateRef = React.useRef(reducer.current(initialState));
   return React.useReducer(reducer.current, initialStateRef.current);
 };
 
@@ -141,10 +141,6 @@ export const readLocalStorage = (name = "usergamedata") => {
 };
 
 export const writeLocalStorage = (name, state) => {
-  if (!state) {
-    state = name;
-    name = "usergamedata";
-  }
   localStorage.setItem(name, JSON.stringify(state));
 };
 
