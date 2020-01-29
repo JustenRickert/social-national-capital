@@ -1,9 +1,11 @@
 import React from "react";
-import { useTimeout } from "./state-util.js";
+import { useTimeout, partition, get, useTimeoutRecord } from "./state-util.js";
+import { toPercentage, toCount, toMoney } from "./format-utils";
+import { achievmentConditionMap } from "./state.js";
 
 const ElectionAchievment = ({ onChange, ...props }) => {
   const { waiting, reset } = useTimeout(5e3);
-  if (!props.achieved) return null;
+  if (!props.level) return null;
   return (
     <section>
       <h4>{props.name}</h4>
@@ -21,24 +23,56 @@ const ElectionAchievment = ({ onChange, ...props }) => {
   );
 };
 
-const CityAchievement = ({ onChange, election, ...props }) => {
-  const { waiting, reset } = useTimeout(props.taxtimeout);
-  if (!props.achieved) return null;
+const last = xs => xs[xs.length - 1];
+
+const achievementLevelCost = props =>
+  Math.exp(props.level) * last(achievmentConditionMap[props.name]);
+
+const isAchievementLevelCostMet = props =>
+  props.wealth > achievementLevelCost(props);
+
+const CityAchievement = ({ onChange, election, city, ...props }) => {
+  const { waiting, reset } = useTimeoutRecord({
+    tax: props.taxtimeout,
+    level: props.upgradetimeout
+  });
+  // const { waiting, reset } = useTimeout(props.taxtimeout);
+  if (!props.level) return null;
   return (
     <li>
       <h3>{props.name}</h3>
 
       <button
-        disabled={waiting}
+        disabled={waiting.tax}
         onClick={() => {
-          reset();
+          reset("tax");
           onChange({ name: props.name, type: "tax" });
         }}
       >
-        tax {Math.floor(100 * props.taxpercentage)}%
+        tax {toPercentage(props.taxpercentage)}%
       </button>
 
-      <section>{props.wealth.toFixed(2)} wealth</section>
+      <button
+        disabled={waiting.level || !isAchievementLevelCostMet(props)}
+        onClick={() => {
+          reset("level");
+          onChange({
+            name: props.name,
+            type: "level",
+            payload: { cost: achievementLevelCost(props) }
+          });
+        }}
+      >
+        add infrastructure {toCount(achievementLevelCost(props))}
+      </button>
+
+      <section>
+        <ul>
+          <li>level: {toCount(props.level)}</li>
+          <li>wealth: {toMoney(props.wealth)}</li>
+          <li>infrastructure: {toMoney(props.infrastructure)} </li>
+        </ul>
+      </section>
 
       <ElectionAchievment onChange={onChange} {...election} />
     </li>
@@ -93,7 +127,7 @@ const SwitchAchievement = props => {
   }
 };
 
-export const Achievement = ({ achievement, onChange }) => {
+export const Achievement = ({ city, achievement, onChange }) => {
   return (
     <>
       <h2>Achievment</h2>
@@ -102,11 +136,12 @@ export const Achievement = ({ achievement, onChange }) => {
         <ul className="achievement-list">
           <CityAchievement
             {...achievement.city}
+            city={city}
             onChange={onChange}
             election={achievement.election}
           />
           {Object.values(achievement)
-            .filter(({ achieved }) => achieved)
+            .filter(({ level }) => level)
             .map(ach => (
               <li key={ach.name}>
                 <SwitchAchievement {...ach} onChange={onChange} />

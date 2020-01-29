@@ -2,6 +2,7 @@ import React from "react";
 
 import { get, useInterval, randomDeviation } from "./state-util.js";
 import { assert } from "./util.js";
+import { toCount, toMoney, toPercentage } from "./format-utils.js";
 
 const runKeyfn = (state, [key, fn]) => fn(get(state, key));
 
@@ -48,7 +49,7 @@ export const useCityLifeAndDeathInterval = ({ city, changePopulation }) => {
 export const useCitySocialWealthChangeInterval = ({ city, changeWealth }) => {
   useInterval(() => {
     const { population, wealth } = city.social;
-    const growthrate = get(city, ["social", "wealthrate"]);
+    const growthrate = get(city, ["social", "wealthpercentage"]);
     const growth = growthrate * population;
     const taxpercentage = get(city, ["social", "taxpercentage"]);
     const tax = taxpercentage * growth;
@@ -63,30 +64,55 @@ export const useCitySocialWealthChangeInterval = ({ city, changeWealth }) => {
   }, 1000);
 };
 
+const socialStatsList = [
+  { key: "population", fn: toCount },
+  { key: "wealth", fn: toMoney },
+  { key: "wealthpercentage", display: "wealth growth", fn: toPercentage },
+  { key: "taxpercentage", display: "tax", fn: toPercentage }
+];
+
+const CitySocial = ({ city, onChange }) => {
+  const { social, national, capital } = city;
+
+  return (
+    <section>
+      <h3>social</h3>
+      <button onClick={() => onChange({ type: "grow" })} children="clicker" />
+      <ul>
+        {socialStatsList.map(({ key, display, fn }) => (
+          <li key={key}>{[display || key, fn(social[key])].join(": ")}</li>
+        ))}
+      </ul>
+    </section>
+  );
+};
+
+const nationalStatsList = [
+  { key: "population", display: "bureaucrats", fn: toCount },
+  { key: "wealth", fn: toMoney }
+];
+
+const CityNational = ({ city, onChange }) => {
+  const { national } = city;
+  return (
+    <section>
+      <h3>national</h3>
+      <ul>
+        {nationalStatsList.map(({ key, display, fn }) => (
+          <li key={key}>{[display || key, fn(national[key])].join(": ")}</li>
+        ))}
+      </ul>
+    </section>
+  );
+};
+
 export const City = ({ city, onChange }) => {
   const { social, national, capital } = city;
   return (
     <>
       <h2>City</h2>
-      <section>
-        <h3>social</h3>
-        <button onClick={() => onChange({ type: "grow" })} children="clicker" />
-        <p>
-          {social.population} workers
-          {", "}
-          {social.wealth.toFixed(2)}+{social.wealthrate.toFixed(2)}-
-          {(100 * social.taxpercentage).toFixed(1)}%/worker wealth
-        </p>
-      </section>
-
-      <section>
-        <h3>national</h3>
-        <p>
-          {national.population} bureaucrats{", "}
-          {national.wealth.toFixed(2)}+{(100 * social.taxpercentage).toFixed(1)}
-          %/worker treasury
-        </p>
-      </section>
+      <CitySocial city={city} onChange={onChange} />
+      <CityNational city={city} onChange={onChange} />
 
       <section>
         <h3>capital</h3>

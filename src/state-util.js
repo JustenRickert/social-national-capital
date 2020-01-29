@@ -135,6 +135,21 @@ export const useTimeout = ms => {
   };
 };
 
+export const useTimeoutRecord = msRecord => {
+  const [waiting, reset] = React.useState({});
+  const handleReset = key => {
+    reset(waiting => update(waiting, key, () => true));
+    setTimeout(
+      () => reset(waiting => update(waiting, key, () => false)),
+      msRecord[key]
+    );
+  };
+  return {
+    waiting,
+    reset: handleReset
+  };
+};
+
 export const sampleBetween = (lhs, rhs) => {
   const least = Math.min(lhs, rhs);
   const dist = rhs + lhs;

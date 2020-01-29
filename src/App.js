@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 
-import { city, achievement } from "./state.js";
+import { city, achievement, achievmentConditionMap } from "./state.js";
 import {
   City,
   useCityLifeAndDeathInterval,
@@ -23,23 +23,8 @@ import "./app.css";
 
 const and = (...conditions) => ({ type: "and", value: conditions });
 
-const achievmentConditionMap = {
-  city: ["city", "social", "wealth", 1],
-  school: ["city", "social", "wealth", 10],
-  hospital: ["city", "social", "wealth", 50],
-  firedepartment: ["city", "social", "wealth", 100],
-  election: ["achievement", "city", "wealth", 10],
-  government: ["city", "national", "population", 10],
-  defense: ["achievement", "city", "wealth", 100],
-  business: ["city", "social", "wealth", 1],
-  agriculture: ["achievement", "business", "wealth", 10],
-  coal: ["achievement", "business", "wealth", 50],
-  oil: ["achievement", "business", "wealth", 100],
-  chemical: ["achievement", "business", "wealth", 150]
-};
-
 const hitsAchievementCondition = (state, ach) => {
-  if (ach.achieved) return false;
+  if (ach.level) return false;
   if (!achievmentConditionMap[ach.name]) return false;
   if (!achievmentConditionMap[ach.name].type) {
     const [key, [amount]] = partition(
@@ -65,31 +50,28 @@ export const achievementConditions = state =>
     hitsAchievementCondition(state, ach)
   );
 
-const toUpdateMultiplier = (o, path = []) =>
+const toUpdateMultiplierKeyfn = (o, path = []) =>
   Object.entries(o).reduce((acc, [key, value]) => {
     if (typeof value === "object")
-      acc.push(...toUpdateMultiplier(value, path.concat(key)));
+      acc.push(...toUpdateMultiplierKeyfn(value, path.concat(key)));
     else acc.push([path.concat(key), v => v * value]);
     return acc;
   }, []);
 
 const achievementUpdates = (achievments, collected = []) =>
   Object.entries(achievments)
-    .filter(([, { achieved, cityupdates }]) => achieved && cityupdates)
-    .reduce(
-      (acc, [, { cityupdates }]) => acc.concat(toUpdateMultiplier(cityupdates)),
-      []
-    );
+    .filter(([, { level, cityupdates }]) => level && cityupdates)
+    .flatMap(([, { cityupdates }]) => toUpdateMultiplierKeyfn(cityupdates));
 
 const App = ({ initialState, handleSave }) => {
   const [state, dispatch] = useSliceState({ city, achievement }, initialState);
   const updates = achievementUpdates(state.achievement);
   const cityWithAchievementAugments = update(state.city, updates);
 
-  useInterval(state => handleSave(state), state, 10e3);
+  useInterval(handleSave, state, 10e3);
 
   useInterval(
-    payload => dispatch(achievement.actions.runAchievement(payload)),
+    payload => dispatch(achievement.actions.runAchievementUnlock(payload)),
     state,
     1.5e3
   );
@@ -104,7 +86,12 @@ const App = ({ initialState, handleSave }) => {
     changePopulation: composeFn(dispatch, city.actions.changePopulation)
   });
 
-  const handleAchievementChange = ({ name, type }) => {
+  const handleAchievementChange = ({ name, type, payload: { cost } = {} }) => {
+    if (type === "level") {
+      dispatch(achievement.actions.levelAchievement({ name, cost }));
+      dispatch(achievement.actions.changeWealth({ name, amount: -cost }));
+      return;
+    }
     switch (`${name}/${type}`) {
       case "election/holdelection":
         assert(
@@ -172,6 +159,7 @@ const App = ({ initialState, handleSave }) => {
 
       <div className="panel">
         <Achievement
+          city={cityWithAchievementAugments}
           achievement={state.achievement}
           onChange={handleAchievementChange}
         />

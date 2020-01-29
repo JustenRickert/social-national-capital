@@ -15,7 +15,7 @@ const initialCityState = {
     birthpercentage: 0.04,
 
     // wealth per second
-    wealthrate: 0.01,
+    wealthpercentage: 0.01,
     // wealth per second transferred to national
     taxpercentage: 0.001,
 
@@ -61,6 +61,23 @@ export const city = createSlice({
   }
 });
 
+// TODO: this method should be changed to an object and moved into achievements
+// (see `cityupdates` key below)
+export const achievmentConditionMap = {
+  city: ["city", "social", "wealth", 1],
+  school: ["city", "social", "wealth", 10],
+  hospital: ["city", "social", "wealth", 50],
+  firedepartment: ["city", "social", "wealth", 100],
+  election: ["achievement", "city", "wealth", 10],
+  government: ["city", "national", "population", 10],
+  defense: ["achievement", "city", "wealth", 100],
+  business: ["city", "social", "wealth", 1],
+  agriculture: ["achievement", "business", "wealth", 10],
+  coal: ["achievement", "business", "wealth", 50],
+  oil: ["achievement", "business", "wealth", 100],
+  chemical: ["achievement", "business", "wealth", 150]
+};
+
 // `achivement.updates` is a nested object whose leaves correspond to scalars of
 // the corresponding values in state. Multiples updates to the same key should
 // are treated correctly since multiplication is associative.
@@ -68,15 +85,17 @@ const initialAchievementState = {
   city: {
     name: "city",
     wealth: 0,
+    infrastructure: 0,
     taxpercentage: 0.01,
     taxtimeout: 30e3,
+    upgradetimeout: 60e3,
     cityupdates: {
       social: {
         taxpercentage: 1.1,
         deathrate: 0.85
       }
     },
-    achieved: false
+    level: 0
   },
   hospital: {
     name: "hospital",
@@ -87,7 +106,7 @@ const initialAchievementState = {
         birthpercentage: 1.1
       }
     },
-    achieved: false
+    level: 0
   },
   firedepartment: {
     name: "firedepartment",
@@ -98,7 +117,7 @@ const initialAchievementState = {
         deathpercentage: 0.95
       }
     },
-    achieved: false
+    level: 0
   },
   election: {
     name: "election",
@@ -107,15 +126,15 @@ const initialAchievementState = {
         taxpercentage: 1.1
       }
     },
-    achieved: false
+    level: 0
   },
   government: {
     name: "government",
-    achieved: false
+    level: 0
   },
   defense: {
     name: "defense",
-    achieved: false
+    level: 0
   },
   business: {
     name: "business",
@@ -123,19 +142,19 @@ const initialAchievementState = {
     investpercentage: 0.01,
     investtimeout: 30e3,
 
-    achieved: false
+    level: 0
   },
   agriculture: {
     name: "agriculture",
-    achieved: false
+    level: 0
   },
   coal: {
     name: "coal",
-    achieved: false
+    level: 0
   },
   chemical: {
     name: "chemical",
-    achieved: false
+    level: 0
   }
 };
 
@@ -143,15 +162,21 @@ export const achievement = createSlice({
   name: "achievement",
   initialState: initialAchievementState,
   reducerMap: {
-    runAchievement: (city, { payload: state }) => {
+    levelAchievement: (state, { payload: { name, cost, amount = 1 } }) =>
+      update(state, [
+        [[name, "level"], level => level + amount],
+        [[name, "infrastructure"], infrastructure => infrastructure + cost]
+      ]),
+    runAchievementUnlock: (achievments, { payload: state }) => {
       const ups = achievementConditions(state);
-      if (!ups.length) return city;
+      if (!ups.length) return achievments;
       return update(
-        city,
-        ups.map(({ name }) => [[name, "achieved"], () => true])
+        achievments,
+        ups.map(({ name }) => [[name, "level"], () => 1])
       );
     },
     changeWealth: (state, { payload: { name, amount } }) => {
+      console.log("what", get(state, [name]), amount);
       assert("wealth" in get(state, [name]), "must have `wealth` to change it");
       assert(
         get(state, [name, "wealth"]) + amount > 0,
